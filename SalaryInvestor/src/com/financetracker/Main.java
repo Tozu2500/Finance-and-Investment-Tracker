@@ -2,6 +2,8 @@ package com.financetracker;
 
 import java.awt.Color;
 
+import javax.swing.UIManager;
+
 public class Main {
 
     public static void main(String[] args) {
@@ -14,9 +16,15 @@ public class Main {
 
         } catch (Exception ignored) {}
 
-        Thread.setDefaultUncaughtException((t, e) -> {
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
             System.err.println("Uncaught exception on " + t.getName() + ":");
             e.printStackTrace();
+        });
+
+        SwingUtilities.invokeLater(() -> {
+            AppContext.get().boot();
+            MainFrame frame = new MainFrame();
+            frame.setVisible(true);
         });
     }
 }
