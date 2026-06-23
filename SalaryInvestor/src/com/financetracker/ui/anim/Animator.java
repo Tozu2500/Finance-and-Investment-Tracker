@@ -17,6 +17,12 @@ public final class Animator {
         boolean tick(long nowNanos, double deltaSeconds);
     }
 
-    
+    private static final Animator INSTANCE = new Animator();
+
+    public static Animator get() {
+        return INSTANCE;
+    }
+
+    public static final int FPS = 60;
 
 }

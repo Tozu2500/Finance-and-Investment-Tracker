@@ -2,7 +2,13 @@ package com.financetracker;
 
 import java.awt.Color;
 
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+
+/**
+ * Entry point for the desktop version of the application. Opens a login/register window
+ * before the main application.
+ */
 
 public class Main {
 
