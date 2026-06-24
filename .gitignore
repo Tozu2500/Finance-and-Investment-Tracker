@@ -9,6 +9,8 @@ target/
 hs_err_pid*
 
 # ── Spring Boot ───────────────────────────────────────────────
+application.properties
+application.yml
 application-local.properties
 application-local.yml
 
