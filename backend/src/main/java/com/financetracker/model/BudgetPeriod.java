@@ -17,6 +17,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -24,39 +25,46 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "goal_deposits", indexes = {
-        @Index(name = "idx_goal_deposits_goal",      columnList = "goal_id"),
-        @Index(name = "idx_goal_deposits_user_date", columnList = "user_id, created_at")
+@Table(name = "budget_periods", indexes = {
+    @Index(name = "idx_budget_user_period", columnList = "user_id, year, month")
+}, uniqueConstraints = {
+    @UniqueConstraint(name = "uk_budget_cat_month", columnNames = {"category_id", "year", "month"})
 })
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class GoalDeposit {
+public class BudgetPeriod {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "goal_id", nullable = false)
-    @JsonIgnore
-    private Goal goal;
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnore
-    private User user;
+    @Column(nullable = false)
+    private Integer year;
+
+    // 1-12
+    @Column(nullable = false)
+    private Integer month;
 
     @Column(nullable = false, precision = 19, scale = 4)
     private BigDecimal amount;
 
-    @Column(length = 300)
+    @Column(length = 200)
     private String note;
 
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
+    @Column(updatable = false)
     private LocalDateTime createdAt;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
+    private User user;
 
 }
