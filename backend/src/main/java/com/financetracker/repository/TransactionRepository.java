@@ -97,10 +97,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
 
     // Query replacing the "per-month" sumByTypeAndYearMonth loop 'trending'
     @Query("SELECT YEAR(t.date), MONTH(t.date), t.type, COALESCE(SUM(t.amount), 0) " +
-        "FROM Transaction t WHERE t.user = :user AND t.isDeleted = false " +
-        "AND t.date >= :from " +
-        "GROUP BY YEAR(t.date), MONTH(t.date), t.type " +
-        "GROUP BY YEAR(t.date), MONTH(t.date)")
+       "FROM Transaction t WHERE t.user = :user AND t.isDeleted = false " +
+       "AND t.date >= :from " +
+       "GROUP BY YEAR(t.date), MONTH(t.date), t.type " +
+       "ORDER BY YEAR(t.date), MONTH(t.date)")
     List<Object[]> sumByYearMonthAndType(@Param("user") User user, @Param("from") LocalDate from);
     
 }
