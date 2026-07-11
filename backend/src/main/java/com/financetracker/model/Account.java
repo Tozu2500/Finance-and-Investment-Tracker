@@ -68,7 +68,7 @@ public class Account {
     @Column(nullable = false)
     private Boolean isArchived = false;
 
-    // User-defined display order (lower = first)
+    // User-defined display order (lower = first).
     @Builder.Default
     @Column(nullable = false, columnDefinition = "int not null default 0")
     private Integer sortOrder = 0;
