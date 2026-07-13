@@ -3,8 +3,8 @@ package com.financetracker.security;
 import java.io.IOException;
 import java.util.Locale;
 
-import org.hibernate.validator.internal.util.logging.LoggerFactory;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -107,7 +107,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // decoders silently drop the dangling 6 bits — which makes
         // "<token>x" verify as the original signature. Rejecting the shape
         // here removes that token malleability.
-        
+
         if (!isCanonicalBase64Url(token, 0, firstDot)
                 || !isCanonicalBase64Url(token, firstDot + 1, lastDot)
                 || !isCanonicalBase64Url(token, lastDot + 1, token.length())) {
@@ -118,5 +118,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private static boolean isCanonicalBase64Url(String s, int from, int to) {
 
+        if (to - from == 0 || (to - from) % 4 == 1) return false;
+
+        for (int i = from; i < to; i++) {
+            char c = s.charAt(i);
+            boolean ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
+                    || (c >= '0' && c <= '9') || c == '-' || c == '_';
+            if (!ok) return false;
+        }
+        
+        return true;
     }
 }
