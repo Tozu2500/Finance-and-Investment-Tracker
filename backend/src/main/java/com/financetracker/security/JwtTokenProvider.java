@@ -1,5 +1,15 @@
 package com.financetracker.security;
 
+import java.util.Date;
+import java.util.UUID;
+import java.util.function.Function;
+
+import javax.crypto.SecretKey;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Component;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
@@ -8,14 +18,6 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.stereotype.Component;
-
-import javax.crypto.SecretKey;
-import java.util.Date;
-import java.util.UUID;
-import java.util.function.Function;
 
 @Slf4j
 @Component
@@ -58,18 +60,61 @@ public class JwtTokenProvider {
                 + "environment variable before exposing this server to a network.");
         }
 
-        signingKey = Keys.hmacShaKeyFor(decoded);
+        signingkey = Keys.hmacShaKeyFor(decoded);
         // Built once: the parser is thread-safe and enforces signature,
         // expiry (with bounded skew), issuer and audience on every parse —
         // there is no code path that reads claims from an unverified token.
 
         parser = Jwts.parser()
-                .verifyWith(signingKey)
+                .verifyWith(signingkey)
                 .requireIssuer(ISSUER)
                 .requireAudience(AUDIENCE)
                 .clockSkewSeconds(CLOCK_SKEW_SECONDS)
                 .build();
     }
 
+    public String generateToken(UserDetails userDetails) {
+        Date now = new Date();
+        return Jwts.builder()
+            .id(UUID.randomUUID().toString())
+            .subject(userDetails.getUsername())
+            .issuer(ISSUER)
+            .audience().add(AUDIENCE).and()
+            .issuedAt(now)
+            .expiration(new Date(now.getTime() + jwtExpiration))
+            .signWith(signingkey)
+            .compact();
+    }
 
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        try {
+            Claims claims = parser.parseSignedClaims(token).getPayload();
+            String subject = claims.getSubject();
+
+            if (subject == null || subject.isBlank() || !subject.equals(userDetails.getUsername())) {
+                return false;
+            }
+            // A well-formed token from this server always carries iat/exp with
+            // exp - iat == configured lifetime. Anything longer-lived than we
+            // ever issue is forged or misconfigured — reject it even though
+            // the signature verifies.
+            Date issuedAt = claims.getIssuedAt();
+            Date expiration = claims.getExpiration();
+            if (issuedAt == null || expiration == null) {
+                return false;
+            }
+
+            return expiration.getTime() - issuedAt.getTime() <= jwtExpiration + LIFETIME_SLACK_MS;
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private <T> T extractClaim(String token, Function<Claims, T> resolver) {
+        return resolver.apply(parser.parseSignedClaims(token).getPayload());
+    }
 }
