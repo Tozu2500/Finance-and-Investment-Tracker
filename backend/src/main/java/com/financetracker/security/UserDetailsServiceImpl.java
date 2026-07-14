@@ -1,6 +1,7 @@
 package com.financetracker.security;
 
 import com.financetracker.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -14,9 +15,11 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        String normalized = email == null ? "" : email.trim()
-
+        String normalized = email == null ? "" : email.trim();
+        // The supplied identifier is deliberately NOT echoed into the
+        // exception: these messages end up in logs, and login identifiers
+        // are PII (see the log-hygiene rule in Fable_future_enhancements §3.5).
         return userRepository.findByEmail(normalized)
-            .orElseThrow(() -> new UsernameNotFoundException("No account for the supplied email"));
+                .orElseThrow(() -> new UsernameNotFoundException("No account for the supplied email"));
     }
 }
