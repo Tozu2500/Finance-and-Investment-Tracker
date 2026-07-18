@@ -1,4 +1,4 @@
-# ── Java / Maven ──────────────────────────────────────────────
+# Java / Maven
 target/
 *.class
 *.jar
@@ -8,13 +8,13 @@ target/
 .mvn/wrapper/maven-wrapper.jar
 hs_err_pid*
 
-# ── Spring Boot ───────────────────────────────────────────────
+# Spring Boot
 application.properties
 application.yml
 application-local.properties
 application-local.yml
 
-# ── Node / npm ────────────────────────────────────────────────
+# Node / npm
 node_modules/
 package-lock.json
 npm-debug.log*
@@ -22,17 +22,17 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# ── Vite / build output ───────────────────────────────────────
+# Vite / build output
 dist/
 dist-ssr/
 *.local
 
-# ── Environment / secrets ─────────────────────────────────────
+# Environment / secrets
 .env
 .env.*
 !.env.example
 
-# ── IDEs ──────────────────────────────────────────────────────
+# IDEs
 .idea/
 *.iml
 .vscode/
@@ -42,6 +42,9 @@ dist-ssr/
 *.sln
 *.sw?
 
-# ── OS ────────────────────────────────────────────────────────
+# OS
 .DS_Store
 Thumbs.db
+
+# Extra
+temp_explanation*
