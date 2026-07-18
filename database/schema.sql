@@ -107,5 +107,22 @@ CREATE TABLE IF NOT EXISTS transactions (
     recur ENUM('DAILY', 'MONTHLY', 'NONE', 'WEEKLY', 'YEARLY'),
     transfer_id VARCHAR(255),
     recurring_rule_id VARCHAR(36),
-    
-)
+    account_id VARCHAR(255),
+    category_id VARCHAR(255),
+    user_id VARCHAR(255) NOT NULL,
+    is_deleted BIT(1) NOT NULL,
+    deleted_at DATETIME(6),
+    created_at DATETIME(6),
+    updated_at DATETIME(6),
+    INDEX idx_tx_user_date (user_id, date),
+    INDEX idx_tx_user_type_date (user_id, type, date),
+    INDEX idx_tx_user_active (user_id, is_deleted, date),
+    INDEX idx_tx_user_cat_date (user_id, category_id, date),
+    INDEX idx_tx_category (category_id),
+    INDEX idx_tx_account (account_id),
+    INDEX idx_tx_transfer (transfer_id),
+    INDEX idx_tx_merchant (user_id, merchant),
+    CONSTRAINT fk_tx_account FOREIGN KEY (account_id) REFERENCES accounts(id),
+    CONSTRAINT fk_tx_category FOREIGN KEY (category_id) REFERENCES categories(id),
+    CONSTRAINT fk_tx_user FOREIGN KEY (user_id) REFERENCES users(id)
+) Engine=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
