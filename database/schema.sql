@@ -126,3 +126,12 @@ CREATE TABLE IF NOT EXISTS transactions (
     CONSTRAINT fk_tx_category FOREIGN KEY (category_id) REFERENCES categories(id),
     CONSTRAINT fk_tx_user FOREIGN KEY (user_id) REFERENCES users(id)
 ) Engine=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Transaction to Tag (many to many)
+CREATE TABLE IF NOT EXISTS transaction_tags (
+    transaction_id VARCHAR(255) NOT NULL,
+    tag_id VARCHAR(255) NOT NULL,
+    PRIMARY KEY (transaction_id, tag_id),
+    CONSTRAINT fk_txtag_tx FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+    CONSTRAINT fk_txtag_tag FOREIGN KEY (tag_id) REFERENCES tags(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
