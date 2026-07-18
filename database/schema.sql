@@ -1,8 +1,8 @@
 -- Finance Enhancement Application 1.0
 -- MySQL8.0 4.7.2026
 
-CREATE DATABASE IF NOT EXISTS finance_tracker CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE finance_tracker;
+CREATE DATABASE IF NOT EXISTS finance_planner CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE finance_planner;
 
 -- Users 
 CREATE TABLE IF NOT EXISTS users (
@@ -90,3 +90,22 @@ CREATE TABLE IF NOT EXISTS tags (
     INDEX idx_tags_user (user_id),
     CONSTRAINT fk_tags_user FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Transactions
+-- Soft deleted rows (is_deleted=1) are exluded from business logic, but kept
+-- for an audit trail.
+CREATE TABLE IF NOT EXISTS transactions (
+    id VARCHAR(255) NOT NULL PRIMARY KEY,
+    date DATE NOT NULL,
+    amount DECIMAL(19,4) NOT NULL,
+    currency VARCHAR(10) NOT NULL,
+    exchange_rate DECIMAL(16,8),
+    type ENUM('EXPENSE', 'INCOME') NOT NULL,
+    note VARCHAR(255),
+    merchant VARCHAR(200),
+    location VARCHAR(200),
+    recur ENUM('DAILY', 'MONTHLY', 'NONE', 'WEEKLY', 'YEARLY'),
+    transfer_id VARCHAR(255),
+    recurring_rule_id VARCHAR(36),
+    
+)
