@@ -135,3 +135,21 @@ CREATE TABLE IF NOT EXISTS transaction_tags (
     CONSTRAINT fk_txtag_tx FOREIGN KEY (transaction_id) REFERENCES transactions(id),
     CONSTRAINT fk_txtag_tag FOREIGN KEY (tag_id) REFERENCES tags(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Goals
+CREATE TABLE IF NOT EXISTS goals (
+    id VARCHAR(255) NOT NULL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    target_amount DECIMAL(19,4) NOT NULL,
+    saved_amount DECIMAL(19,4) NOT NULL,
+    deadline DATE,
+    icon VARCHAR(255),
+    color_hex VARCHAR(255),
+    description VARCHAR(500),
+    created_at DATETIME(6),
+    updated_at DATETIME(6),
+    user_id VARCHAR(255) NOT NULL,
+    INDEX idx_goals_user (user_id),
+    CONSTRAINT fk_goals_user FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
