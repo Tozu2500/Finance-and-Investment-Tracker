@@ -4,6 +4,10 @@ package com.financetracker.config;
 import com.financetracker.security.JwtAuthFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+
+import java.io.IOException;
+
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -42,8 +46,8 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(AbstractHttpConfigurer::disable)  // This'll be handled With GlobalCorsFilter
 
-            // Request AUTH
-            .authorizeHttpRequests(auth ->
+            // Request authorization
+            .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .anyRequest().authenticated()
@@ -51,9 +55,9 @@ public class SecurityConfig {
 
             // Session strategy
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-            // Exception handling: 401 on auth fail, not 403 so web clients can distinguish
-            // forbidden and auto direct logins
+            
+            // Exception handling: 401 on auth failure (not 403) so web clients can distinguish
+            // from "forbidden" and auto-redirect to login
             .exceptionHandling(e -> e
                 .authenticationEntryPoint((req, res, ex) ->
                     writeJsonError(res, HttpServletResponse.SC_UNAUTHORIZED, "Authentication required")
@@ -71,8 +75,67 @@ public class SecurityConfig {
                 // MIME type sniffing protection
                 .contentTypeOptions(o -> {})
 
-                
+                // XSS protection (legacy... CSP below is the primary)
+                .xssProtection(x -> x.headerValue(XXssProtectionHeaderWriter.HeaderValue.DISABLED))
+
+                // Referrer control
+                .referrerPolicy(r -> r.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
+
+                // CSP
+                .contentSecurityPolicy(csp ->
+                    csp.policyDirectives("default-src 'none'; frame-ancestors 'none'")
+                )
+
+                // Cross-origin opener policy
+                .crossOriginOpenerPolicy(coop ->
+                    coop.policy(CrossOriginOpenerPolicyHeaderWriter.CrossOriginOpenerPolicy.SAME_ORIGIN)
+                )
+
+                // Cross-origin resource policy -- Block no cors embedding from foreign origins
+                .crossOriginResourcePolicy(corp ->
+                    corp.policy(CrossOriginResourcePolicyHeaderWriter.CrossOriginResourcePolicy.SAME_ORIGIN)
+                )
+
+                // Permissions policy - disable features not required at the moment for safety purposes
+                .permissionsPolicy(p -> p.policy("geolocation=(), microphone=(), camera=()"))
             )
+
+            // Auth & Filters
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    private static void writeJsonError(HttpServletResponse res, int status, String message)
+                throws IOException {
+        if (res.isCommitted()) return;
+        res.setStatus(status);
+        res.setContentType("application/json");
+        res.setCharacterEncoding("UTF-8");
+        res.getWriter().write("{\"status\":" + status + ",\"message\":\"" + message + "\"}");
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        // Work factor 12 (~4x the v1 default of 10). Existing hashes keep
+        // verifying — the cost factor is embedded per-hash — and are upgraded
+        // to 12 whenever the password is next set or changed.
+        return new BCryptPasswordEncoder(12);
     }
 
 }
