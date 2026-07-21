@@ -11,17 +11,15 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 public record BudgetPeriodDto(
-
-    String id,
-    @NotNull String categoryId,
-    CategoryDto category,
-    @NotNull @Min(2000) @Max(2200) int year,
-    @NotNull @Min(1) @Max(12) int month,
-    @Positive @DecimalMax("1000000000000") double amount,
-    String note
+        String id,
+        @NotNull String categoryId,
+        CategoryDto category,
+        @NotNull @Min(2000) @Max(2200) int year,
+        @NotNull @Min(1) @Max(12) int month,
+        @Positive @DecimalMax("1000000000000") double amount,
+        String note
 ) {
-
-    public static BudgetPeriodDto from(BudgetPeriod bd) {
+    public static BudgetPeriodDto from(BudgetPeriod bp) {
         BigDecimal amt = bp.getAmount();
         return new BudgetPeriodDto(
                 bp.getId(),
@@ -33,5 +31,4 @@ public record BudgetPeriodDto(
                 bp.getNote()
         );
     }
-
 }
