@@ -50,7 +50,7 @@ public class Goal {
     @Column(nullable = false, precision = 19, scale = 4)
     private BigDecimal savedAmount = BigDecimal.ZERO;
 
-    private LocalDate deadLine;
+    private LocalDate deadline;
 
     @Builder.Default
     private String icon = "🎯";
