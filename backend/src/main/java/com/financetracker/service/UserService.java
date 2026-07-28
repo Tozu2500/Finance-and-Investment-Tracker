@@ -43,7 +43,7 @@ public class UserService {
                 .name(req.name())
                 .email(req.email())
                 .password(passwordEncoder.encode(req.password()))
-                .build()
+                .build();
         userRepository.save(user);
 
         UserSettings settings = UserSettings.builder().user(user).build();
