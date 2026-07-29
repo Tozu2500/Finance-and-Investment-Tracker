@@ -1,10 +1,12 @@
 package com.financetracker.service;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
+import com.financetracker.dto.AccountDto;
 import com.financetracker.model.Account;
 import com.financetracker.model.User;
 import com.financetracker.repository.AccountRepository;
@@ -29,7 +31,7 @@ public class AccountService {
      * it also self-heals existing accounts (e.g. the seeded demo user) that
      * predate this method.
      */
-    @CacheEvict(value = CACHE_DASHBOARD, key = "#user_id")
+    @CacheEvict(value = CACHE_DASHBOARD, key = "#user.id")
     @Transactional
     public void seedDefaultIfMissing(User user) {
         if (!accountRepository.findByUserOrderBySortOrderAscNameAsc(user).isEmpty()) {
@@ -49,5 +51,84 @@ public class AccountService {
         accountRepository.save(account);
     }
 
-    
+    public List<AccountDto> getAccounts(User user, boolean includeArchived) {
+        List<Account> accounts = includeArchived
+                ? accountRepository.findByUserOrderBySortOrderAscNameAsc(user)
+                : accountRepository.findByUserAndIsArchivedFalseOrderBySortOrderAscNameAsc(user);
+        return accounts.stream()
+            .map(a -> AccountDto.from(a, computeBalance(a, user)))
+            .toList();
+    }
+
+    public AccountDto getAccount(String id, User user) {
+        Account a = findOrThrow(id, user);
+        return AccountDto.from(a, computeBalance(a, user));
+    }
+
+    @CacheEvict(value = CACHE_DASHBOARD, key = "#user.id")
+    @Transactional
+    public AccountDto createAccount(AccountDto req, User user) {
+        Account account = Account.builder()
+            .name(req.name())
+            .icon(req.icon())
+            .openingBalance(BigDecimal.valueOf(req.openingBalance()))
+            .accountType(req.accountType() != null ? req.accountType() : "CHECKING")
+            .colorHex(req.colorHex())
+            .description(req.description())
+            .institution(req.institution())
+            .creditLimit(req.creditLimit() != null ? BigDecimal.valueOf(req.creditLimit()) : null)
+            .sortOrder(req.sortOrder())
+            .isDefault(req.isDefault())
+            .user(user)
+            .build();
+
+        if (req.id() != null && !req.id().isBlank()) {
+            // Client-generated UUIDs (desktop sync) are honored only when unused;;;
+            // otherwise save() would merge into and overwrite an existing row
+            if (accountRepository.existsById(req.id())) {
+                throw new BadRequestException("Account id already exists: " + req.id());
+            }
+
+            account.setId(req.id());
+        }
+
+        // If this is the first account, we make it the default automatically
+        if (accountRepository.findByUserAndIsDefaultTrue(user).isEmpty()) {
+            account.setIsDefault(true);
+        } else if (req.isDefault()) {
+            accountRepository.clearDefaultForUser(user);
+        }
+
+        Account saved = accountRepository.save(account);
+        return AccountDto.from(saved, computeBalance(saved, user));
+    }
+
+    @CacheEvict(value = CACHE_DASHBOARD, key = "#user.id")
+    @Transactional
+    public AccountDto updateAccount(String id, AccountDto req, User user) {
+        Account account = findOrThrow(id, user);
+
+        account.setName(req.name());
+        account.setIcon(req.icon());
+        account.setOpeningBalance(BigDecimal.valueOf(req.openingBalance()));
+
+        if (req.accountType() != null) {
+            account.setAccountType(req.accountType());
+        }
+
+        account.setColorHex(req.colorHex());
+        account.setDescription(req.description());
+        account.setInstitution(req.institution());
+
+        account.setCreditLimit(req.creditLimit() != null ? BigDecimal.valueOf(req.creditLimit()) : null);
+        account.setSortOrder(req.sortOrder());
+
+        if (req.isDefault() && !Boolean.TRUE.equals(account.getIsDefault())) {
+            accountRepository.clearDefaultForUser(user);
+            account.setIsDefault(true);
+        }
+
+        accountRepository.save(account);
+        return AccountDto.from(account, computeBalance(account, user));
+    }
 }
