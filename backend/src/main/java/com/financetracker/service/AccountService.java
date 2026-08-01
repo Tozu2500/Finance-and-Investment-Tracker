@@ -3,8 +3,10 @@ package com.financetracker.service;
 import java.math.BigDecimal;
 import java.util.List;
 
+import org.apache.coyote.BadRequestException;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.financetracker.dto.AccountDto;
 import com.financetracker.model.Account;
@@ -13,7 +15,6 @@ import com.financetracker.repository.AccountRepository;
 import com.financetracker.repository.RecurringRuleRepository;
 import com.financetracker.repository.TransactionRepository;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -130,5 +131,45 @@ public class AccountService {
 
         accountRepository.save(account);
         return AccountDto.from(account, computeBalance(account, user));
+    }
+
+    @CacheEvict(value = CACHE_DASHBOARD, key = "#user.id")
+    @Transactional
+    public AccountDto setDefault(String id, User user) {
+        accountRepository.clearDefaultForUser(user);
+        Account account = findOrThrow(id, user);
+        account.setIsDefault(true);
+        accountRepository.save(account);
+        return AccountDto.from(account, computeBalance(account, user));
+    }
+
+    @CacheEvict(value = CACHE_DASHBOARD, key = "#user.id")
+    @Transactional
+    public AccountDto archiveAccount(String id, boolean archived, User user) {
+        Account account = findOrThrow(id, user);
+        account.setisArchived(archived);
+        accountRepository.save(account);
+        return AccountDto.from(account, computeBalance(account, user));
+    }
+
+    @CacheEvict(value = CACHE_DASHBOARD, key = "#user.id")
+    @Transactional
+    public void deleteAccount(String id, User user) {
+        Account account = findOrThrow(id, user);
+        transactionRepository.nullifyAccountReferences(account.getId(), user);
+        recurringRuleRepository.nullifyAccountReferences(account.getId(), user);
+        accountRepository.deleteById(account.getId());
+    }
+
+    public double computeBalance(Account account, User user) {
+        BigDecimal txSum = accountRepository.sumSignedAmountsForAccount(account, user);
+        BigDecimal opening = account.getOpeningBalance() != null ? account.getOpeningBalance() : BigDecimal.ZERO;
+        BigDecimal total = opening.add(txSum != null ? txSum : BigDecimal.ZERO);
+        return total.doubleValue();
+    }
+
+    private Account findOrThrow(String id, User user) {
+        return accountRepository.findByIdAndUser(id, user)
+            .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + id));
     }
 }
