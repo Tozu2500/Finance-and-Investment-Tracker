@@ -102,4 +102,41 @@ public class TransactionService {
         applyFields(tx, req, user);
         return TransactionDto.from(transactionRepository.save(tx));
     }
+
+    @Caching(evict = {
+        @CacheEvict(value = CACHE_DASHBOARD, key = "#user.id"),
+        @CacheEvict(value = CACHE_MONTHLY_REPORT, allEntries = true),
+        @CacheEvict(value = CACHE_TRENDS, key = "#user.id"),
+        @CacheEvict(value = CACHE_INSIGHTS, key = "#user.id")
+    })
+    @Transactional
+    public void deleteTransaction(String id, User user) {
+        Transaction tx = findOrThrow(id, user);
+        tx.setIsDeleted(true);
+        tx.setDeletedAt(LocalDateTime.now());
+        transactionRepository.save(tx);
+    }
+
+    @Transactional(readOnly = true)
+    public String exportCsv(User user) {
+        List<Transaction> all = transactionRepository.findByUserWithRelations(user);
+        StringBuilder sb = new StringBuilder("date,amount,currency,type,category,account,merchant,location,note,recur\n");
+        
+        for (Transaction t : all) {
+            sb.append(t.getDate()).append(',')
+                .append(t.getAmount() != null ? t.getAmount().toPlainString() : "0").append(',')
+                .append(t.getCurrency() != null ? t.getCurrency() : "USD").append(',')
+                .append(t.getType()).append(',')
+                .append(t.getCategory() != null ? escape(t.getCategory().getName()) : "").append(',')
+                .append(t.getAccount() != null ? escape(t.getAccount().getName()) : "").append(',')
+                .append(escape(t.getMerchant() != null ? t.getMerchant() : "")).append(',')
+                .append(escape(t.getLocation() != null ? t.getLocation() : "")).append(',')
+                .append(escape(t.getNote() != null ? t.getNote() : "")).append(',')
+                .append(t.getRecur()).append('\n');
+        }
+
+        return sb.toString();
+    }
+
+    // LN 137
 }
