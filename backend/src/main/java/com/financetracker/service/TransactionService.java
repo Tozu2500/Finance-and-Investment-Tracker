@@ -77,4 +77,29 @@ public class TransactionService {
     public TransactionDto getById(String id, User user) {
         return TransactionDto.from(findOrThrow(id, user));
     }
+
+    @Caching(evict = {
+        @CacheEvict(value = CACHE_DASHBOARD, key = "#user.id"),
+        @CacheEvict(value = CACHE_MONTHLY_REPORT, allEntries = true),
+        @CacheEvict(value = CACHE_TRENDS, key = "#user.id"),
+        @CacheEvict(value = CACHE_INSIGHTS, key = "#user.id")
+    })
+    @Transactional
+    public TransactionDto createTransaction(TransactionDto req, User user) {
+        Transaction tx = buildTransaction(req, user);
+        return TransactionDto.from(transactionRepository.save(tx));
+    }
+
+    @Caching(evict = {
+        @CacheEvict(value = CACHE_DASHBOARD, key = "#user.id"),
+        @CacheEvict(value = CACHE_MONTHLY_REPORT, allEntries = true),
+        @CacheEvict(value = CACHE_TRENDS, key = "#user.id"),
+        @CacheEvict(value = CACHE_INSIGHTS, key = "#user.id")
+    })
+    @Transactional
+    public TransactionDto updateTransaction(String id, TransactionDto req, User user) {
+        Transaction tx = findOrThrow(id, user);
+        applyFields(tx, req, user);
+        return TransactionDto.from(transactionRepository.save(tx));
+    }
 }
