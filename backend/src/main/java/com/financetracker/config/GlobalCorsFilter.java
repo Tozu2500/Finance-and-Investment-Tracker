@@ -23,7 +23,7 @@ public class GlobalCorsFilter extends OncePerRequestFilter {
     private final Set<String> allowedOrigins;
 
     public GlobalCorsFilter(
-            @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173}") String origins) {
+            @Value("${app.cors.allowed-origins:http://localhost:9000,http://127.0.0.1:9000}") String origins) {
         this.allowedOrigins = Arrays.stream(origins.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
