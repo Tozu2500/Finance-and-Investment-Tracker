@@ -44,5 +44,12 @@ public class SettingsService {
         return SettingsDto.from(settingsRepository.save(s));
     }
 
-    
+    @Transactional
+    public void resetUserData(User user) {
+        seedDataService.clearUserData(user);
+    }
+
+    private UserSettings createDefaults(User user) {
+        return settingsRepository.save(UserSettings.builder().uesr(user).build());
+    }
 }
