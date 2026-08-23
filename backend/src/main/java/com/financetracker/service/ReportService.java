@@ -9,9 +9,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import com.financetracker.dto.AccountDto;
 import com.financetracker.dto.CategoryDto;
+import com.financetracker.dto.TransactionDto;
 import com.financetracker.dto.report.DashboardDto;
 import com.financetracker.model.Account;
 import com.financetracker.model.Category;
@@ -88,6 +91,27 @@ public class ReportService {
 
         }
 
+        // Budget status
+        List<DashboardDto.BudgetLine> budgets = new ArrayList<>();
+        for (Category cat : categoryRepository.findByUserAndTypeOrderByNameAsc(user, TransactionType.EXPENSE)) {
+            if (cat.hasBudget()) {
+                double spent  = spentByCategoryId.getOrDefault(cat.getId(), 0.0);
+                double budget = cat.getMonthlyBudget().doubleValue();
+                double ratio  = budget > 0 ? spent / budget : 0.0;
+                budgets.add(new DashboardDto.BudgetLine(CategoryDto.from(cat), spent, budget, ratio));
+            }
+        }
+
+        List<AccountDto> accountDtos = accounts.stream()
+                .map(a -> AccountDto.from(a, accountService.computeBalance(a, user)))
+                .toList();
+
+        List<TransactionDto> recent = transactionRepository
+                .findRecentByUser(user, PageRequest.of(0, 5))
+                .stream().map(TransactionDto::from).toList();
+
+        return new DashboardDto(totalBalance, monthIncome, monthExpense, savingsRate,
+                trend, breakdown, budgets, accountDtos, recent);
     }
 
 }
