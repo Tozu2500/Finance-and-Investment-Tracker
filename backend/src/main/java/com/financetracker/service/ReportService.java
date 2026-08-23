@@ -1,11 +1,21 @@
 package com.financetracker.service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
+import com.financetracker.dto.CategoryDto;
 import com.financetracker.dto.report.DashboardDto;
 import com.financetracker.model.Account;
+import com.financetracker.model.Category;
+import com.financetracker.model.TransactionType;
 import com.financetracker.model.User;
 import com.financetracker.repository.AccountRepository;
 import com.financetracker.repository.CategoryRepository;
@@ -32,6 +42,52 @@ public class ReportService {
         double openingSum = accounts.stream()
                 .mapToDouble(a -> a.getOpeningBalance() != null ? a.getOpeningBalance().doubleValue() : 0.0)
                 .sum();
+        BigDecimal rawTxSum = transactionRepository.sumSignedAmountsUntil(user, LocalDate.now());
+        double totalBalance = openingSum + (rawTxSum != null ? rawTxSum.doubleValue() : 0.0);
+
+        YearMonth now = YearMonth.now();
+
+        // One batch query for the last 12 months of income or expense
+        LocalDate trendStart = now.minusMonths(11).atDay(1);
+        Map<String, double[]> monthlyMap = buildMonthlyMap(
+            transactionRepository.sumByYearMonthAndType(user, trendStart));
+
+        String nowKey = now.getYear() + "-" + now.getMonthValue();
+        double[] nowRow = monthlyMap.getOrDefault(nowKey, new double[]{0, 0});
+        double monthIncome = nowRow[0];
+        double monthExpense = nowRow[1];
+        double savingsRate = monthIncome > 0 ? Math.max(0, (monthIncome - monthExpense) / monthIncome * 100) : 0;
+
+        // 12 month balance trend -- 1 pre trend query + Java cumulation
+        BigDecimal preTrend = transactionRepository.sumSignedAmountsUntil(user, trendStart.minusDays(1));
+        double runningBalance = openingSum + (preTrend != null ? preTrend.doubleValue() : 0.0);
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM yyyy");
+
+        List<DashboardDto.MonthPoint> trend = new ArrayList<>();
+        for (int i = 11; i >= 0; i--) {
+            YearMonth ym = now.minusMonths(i);
+            String key = ym.getYear() + "-" + ym.getMonthValue();
+            double[] row = monthlyMap.getOrDefault(key, new double[]{0, 0});
+            runningBalance -= row[0] - row[1];   // inc - exp
+            
+            trend.add(new DashboardDto.MonthPoint(ym.format(fmt), runningBalance));
+        }
+
+        // Spending breakdown (curr. month)
+        List<Object[]> breakdownRows = transactionRepository.findCategoryBreakdown(user, now.getYear(), now.getMonthValue());
+        Map<String, Double> spentByCategoryId = new HashMap<>();
+        List<DashboardDto.CategoryAmount> breakdown = new ArrayList<>();
+
+        for (Object[] row : breakdownRows) {
+            CategoryDto cat = row[0] instanceof Category c
+                    ? CategoryDto.from(c)
+                    : new CategoryDto("uncategorized", "Uncategorized", TransactionType.EXPENSE, "#9ca3af", "📦", 0.0, null, 0, null, false);
+            double rowAmount = row[1] instanceof Number n ? n.doubleValue() : 0.0;
+            breakdown.add(new DashboardDto.CategoryAmount(cat, rowAmount));
+            if (row[0] instanceof Category c) spentByCategoryId.put(c.getId(), rowAmount);
+
+        }
+
     }
 
 }
