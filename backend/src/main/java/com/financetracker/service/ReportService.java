@@ -16,6 +16,7 @@ import com.financetracker.dto.AccountDto;
 import com.financetracker.dto.CategoryDto;
 import com.financetracker.dto.TransactionDto;
 import com.financetracker.dto.report.DashboardDto;
+import com.financetracker.dto.report.MonthlyReportDto;
 import com.financetracker.model.Account;
 import com.financetracker.model.Category;
 import com.financetracker.model.TransactionType;
@@ -112,6 +113,25 @@ public class ReportService {
 
         return new DashboardDto(totalBalance, monthIncome, monthExpense, savingsRate,
                 trend, breakdown, budgets, accountDtos, recent);
+    }
+
+    @Cacheable(value = CACHE_MONTHLY_REPORT, key = "#user.id + ':' + #year + ':' + #month")
+    @Transactional(readOnly = true)
+    public MonthlyReportDto getMonthlyReport(User user, int year, int month) {
+        // Use the batch category--id query for income and expense sums
+        LocalDate monthStart = LocalDate.of(year, month, 1);
+
+        Map<String, double[]> monthlyMap = buildMonthlyMap(
+            transactionRepository.sumByYearMonthAndType(user, monthStart));
+        String key = year + "-" + month;
+        double[] row = monthlyMap.getOrDefault(key, new double[]{0, 0});
+
+        double income = row[0];
+        double expense = row[1];
+        double net = income - expense;
+        double savingsRate = income > 0 ? Math.max(0, net / income * 100) : 0;
+
+        
     }
 
 }
