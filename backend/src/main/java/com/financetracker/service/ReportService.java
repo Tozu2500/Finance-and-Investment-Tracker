@@ -19,6 +19,7 @@ import com.financetracker.dto.report.DashboardDto;
 import com.financetracker.dto.report.MonthlyReportDto;
 import com.financetracker.model.Account;
 import com.financetracker.model.Category;
+import com.financetracker.model.Transaction;
 import com.financetracker.model.TransactionType;
 import com.financetracker.model.User;
 import com.financetracker.repository.AccountRepository;
@@ -131,7 +132,20 @@ public class ReportService {
         double net = income - expense;
         double savingsRate = income > 0 ? Math.max(0, net / income * 100) : 0;
 
-        
+        // Full category breakdown ordered by spend DESC - no size cap, frontend decides how many to show.
+        List<MonthlyReportDto.CategoryAmount> categorySpend = new ArrayList<>();
+        for (Object[] r : transactionRepository.findCategoryBreakdown(user, year, month)) {
+            CategoryDto cat = r[0] instanceof Category c
+                ? CategoryDto.from(c)
+                : new CategoryDto("uncategorized", "Uncategorized", TransactionType.EXPENSE, "#9ca3af", "📦", 0.0, null, 0, null, false);
+            double amt = r[1] instanceof Number n ? n.doubleValue() : 0.0;
+            categorySpend.add(new MonthlyReportDto.CategoryAmount(cat, amt));
+        }
+
+        List<Transaction> largest = transactionRepository.findLargestExpenseInMonth(user, year, month, PageRequest.of(0, 1));
+        TransactionDto largestDto = largest.isEmpty() ? null : TransactionDto.from(largest.get(0));
+
+        return new MonthlyReportDto(year, month, income, expense, net, savingsRate, categorySpend, largestDto);
     }
 
 }
