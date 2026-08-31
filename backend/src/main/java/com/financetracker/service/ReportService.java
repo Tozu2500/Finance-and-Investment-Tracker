@@ -16,7 +16,9 @@ import com.financetracker.dto.AccountDto;
 import com.financetracker.dto.CategoryDto;
 import com.financetracker.dto.TransactionDto;
 import com.financetracker.dto.report.DashboardDto;
+import com.financetracker.dto.report.InsightsDto;
 import com.financetracker.dto.report.MonthlyReportDto;
+import com.financetracker.dto.report.TrendsDto;
 import com.financetracker.model.Account;
 import com.financetracker.model.Category;
 import com.financetracker.model.Transaction;
@@ -146,6 +148,66 @@ public class ReportService {
         TransactionDto largestDto = largest.isEmpty() ? null : TransactionDto.from(largest.get(0));
 
         return new MonthlyReportDto(year, month, income, expense, net, savingsRate, categorySpend, largestDto);
+    }
+
+    @Cacheable(value = CACHE_TRENDS, key = "#user.id + ':' + #months")
+    @Transactional(readOnly = true)
+    public TrendsDto getTrends(User user, int months) {
+        YearMonth now = YearMonth.now();
+        LocalDate fromDate = now.minusMonths(months - 1).atDay(1);
+
+        // Single batch query replaces N*2 per month queries
+        Map<String, double[]> monthlyMap = buildMonthlyMap(
+                transactionRepository.sumByYearMonthAndType(user, fromDate));
+
+        // Compute cumulative balance: 1 pre-trend query + java cumulation
+        List<Account> accounts = accountRepository.findByUserOrderBySortOrderAscNameAsc(user);
+        double openingSum = accounts.stream()
+            .mapToDouble(a -> a.getOpeningBalance() != null ? a.getOpeningBalance().doubleValue() : 0.0)
+            .sum();
+        BigDecimal preTrend = transactionRepository.sumSignedAmountsUntil(user, fromDate.minusDays(1));
+        double runningBalance = openingSum + (preTrend != null ? preTrend.doubleValue() : 0.0);
+
+        List<String> monthLabels = new ArrayList<>();
+        List<Double> income = new ArrayList<>();
+        List<Double> expense = new ArrayList<>();
+        List<Double> net = new ArrayList<>();
+        List<Double> balance = new ArrayList<>();
+
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM yyyy");
+
+        for (int i = months - 1; i >= 0; i--) {
+            YearMonth ym = now.minusMonths(i);
+            String key = ym.getYear() + "-" + ym.getMonthValue();
+
+            double[] row = monthlyMap.getOrDefault(key, new double[]{0, 0});
+            double inc = row[0], exp = row[1];
+
+            runningBalance += inc - exp;
+
+            monthLabels.add(ym.format(fmt));
+            income.add(inc);
+            expense.add(exp);
+            net.add(inc - exp);
+            balance.add(runningBalance);
+        }
+
+        return new TrendsDto(monthLabels, income, expense, net, balance);
+    }
+
+    @Cacheable(value = CACHE_INSIGHTS, key = "#user.id")
+    @Transactional(readOnly = true)
+    public InsightsDto getInsights(User user) {
+        YearMonth now = YearMonth.now();
+        int year = now.getYear(), month = now.getMonthValue();
+
+        // Day of week spend -- one query current month only
+        String[] DAYS = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+        double[] dow = new double[7];
+
+        for (Object[] row : transactionRepository.findDayOfWeekSpend(user, year, month)) {
+            
+        }
     }
 
 }
