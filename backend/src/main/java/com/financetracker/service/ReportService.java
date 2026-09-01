@@ -65,6 +65,12 @@ public class ReportService {
         double monthExpense = nowRow[1];
         double savingsRate = monthIncome > 0 ? Math.max(0, (monthIncome - monthExpense) / monthIncome * 100) : 0;
 
+        // Money in "not spending" categories: left out of every total above, reported
+        // on its own so it reads as moved rather than missing.
+        BigDecimal rawInvested = transactionRepository
+                .sumExcludedByYearMonth(user, now.getYear(), now.getMonthValue());
+        double monthInvested = rawInvested != null ? rawInvested.doubleValue() : 0.0;
+
         // 12 month balance trend -- 1 pre trend query + Java cumulation
         BigDecimal preTrend = transactionRepository.sumSignedAmountsUntil(user, trendStart.minusDays(1));
         double runningBalance = openingSum + (preTrend != null ? preTrend.doubleValue() : 0.0);
@@ -88,7 +94,7 @@ public class ReportService {
         for (Object[] row : breakdownRows) {
             CategoryDto cat = row[0] instanceof Category c
                     ? CategoryDto.from(c)
-                    : new CategoryDto("uncategorized", "Uncategorized", TransactionType.EXPENSE, "#9ca3af", "📦", 0.0, null, 0, null, false);
+                    : new CategoryDto("uncategorized", "Uncategorized", TransactionType.EXPENSE, "#9ca3af", "📦", 0.0, null, 0, null, false, false);
             double rowAmount = row[1] instanceof Number n ? n.doubleValue() : 0.0;
             breakdown.add(new DashboardDto.CategoryAmount(cat, rowAmount));
             if (row[0] instanceof Category c) spentByCategoryId.put(c.getId(), rowAmount);
@@ -98,7 +104,8 @@ public class ReportService {
         // Budget status
         List<DashboardDto.BudgetLine> budgets = new ArrayList<>();
         for (Category cat : categoryRepository.findByUserAndTypeOrderByNameAsc(user, TransactionType.EXPENSE)) {
-            if (cat.hasBudget()) {
+            // An excluded category can never be overspent, so it gets no budget line.
+            if (cat.hasBudget() && !cat.isExcludedFromSpending()) {
                 double spent  = spentByCategoryId.getOrDefault(cat.getId(), 0.0);
                 double budget = cat.getMonthlyBudget().doubleValue();
                 double ratio  = budget > 0 ? spent / budget : 0.0;
@@ -114,7 +121,7 @@ public class ReportService {
                 .findRecentByUser(user, PageRequest.of(0, 5))
                 .stream().map(TransactionDto::from).toList();
 
-        return new DashboardDto(totalBalance, monthIncome, monthExpense, savingsRate,
+        return new DashboardDto(totalBalance, monthIncome, monthExpense, monthInvested, savingsRate,
                 trend, breakdown, budgets, accountDtos, recent);
     }
 
@@ -139,7 +146,7 @@ public class ReportService {
         for (Object[] r : transactionRepository.findCategoryBreakdown(user, year, month)) {
             CategoryDto cat = r[0] instanceof Category c
                 ? CategoryDto.from(c)
-                : new CategoryDto("uncategorized", "Uncategorized", TransactionType.EXPENSE, "#9ca3af", "📦", 0.0, null, 0, null, false);
+                : new CategoryDto("uncategorized", "Uncategorized", TransactionType.EXPENSE, "#9ca3af", "📦", 0.0, null, 0, null, false, false);
             double amt = r[1] instanceof Number n ? n.doubleValue() : 0.0;
             categorySpend.add(new MonthlyReportDto.CategoryAmount(cat, amt));
         }

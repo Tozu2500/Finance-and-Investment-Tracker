@@ -70,6 +70,16 @@ public class Category {
     @Column(nullable = false)
     private Boolean isArchived = false;
 
+    /**
+     * When true, transactions in this category are treated as money that moved rather
+     * than money that left: they are excluded from spending totals, budgets, category
+     * breakdowns and insights, and they leave account balances / net worth untouched.
+     * Used for investments and other "not really spent" categories.
+     */
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
+    private Boolean excludeFromSpending = false;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -84,5 +94,9 @@ public class Category {
 
     public boolean hasBudget() {
         return monthlyBudget != null && monthlyBudget.compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    public boolean isExcludedFromSpending() {
+        return Boolean.TRUE.equals(excludeFromSpending);
     }
 }

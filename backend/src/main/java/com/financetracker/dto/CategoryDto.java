@@ -19,12 +19,14 @@ public record CategoryDto(
     String description,
     int sortOrder,
     String parentCategoryId,
-    boolean isArchived
+    boolean isArchived,
+    boolean excludeFromSpending
 ) {
     public static CategoryDto from(Category c) {
         BigDecimal mb = c.getMonthlyBudget();
         Integer so = c.getSortOrder();
         Boolean archived = c.getIsArchived();
+        Boolean excluded = c.getExcludeFromSpending();
 
         return new CategoryDto(c.getId(), c.getName(), c.getType(),
                         c.getColorHex(), c.getIcon(),
@@ -32,7 +34,8 @@ public record CategoryDto(
                     c.getDescription(),
                     so != null ? so.intValue() : 0,
                     c.getParentCategoryId(),
-                    archived != null && archived);
+                    archived != null && archived,
+                    excluded != null && excluded);
     }
 
 }

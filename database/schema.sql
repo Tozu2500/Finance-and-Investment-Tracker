@@ -72,6 +72,9 @@ CREATE TABLE IF NOT EXISTS categories (
     sort_order     INT,
     parent_id      VARCHAR(255),
     is_archived    BIT(1)        NOT NULL,
+    -- Investments and other "money moved, not spent" categories: excluded from
+    -- spending totals, budgets and balances (see Category.excludeFromSpending).
+    exclude_from_spending BIT(1) NOT NULL DEFAULT b'0',
     created_at     DATETIME(6),
     updated_at     DATETIME(6),
     user_id        VARCHAR(255)  NOT NULL,

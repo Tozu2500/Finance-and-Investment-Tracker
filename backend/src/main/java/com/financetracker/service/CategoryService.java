@@ -55,6 +55,7 @@ public class CategoryService {
             .monthlyBudget(BigDecimal.valueOf(req.monthlyBudget()))
             .description(req.description())
             .sortOrder(req.sortOrder())
+            .excludeFromSpending(req.excludeFromSpending())
             .user(user)
             .build();
         cat.setParentCategoryId(req.parentCategoryId());
@@ -77,6 +78,7 @@ public class CategoryService {
         cat.setDescription(req.description());
         cat.setSortOrder(req.sortOrder());
         cat.setParentCategoryId(req.parentCategoryId());
+        cat.setExcludeFromSpending(req.excludeFromSpending());
         
         return CategoryDto.from(categoryRepository.save(cat));
     }
@@ -117,7 +119,11 @@ public class CategoryService {
     public void seedDefaults(User user) {
         if (!categoryRepository.findByUserOrderByNameAsc(user).isEmpty()) return;
 
-        record Def(String name, TransactionType type, String icon, String color) {}
+        record Def(String name, TransactionType type, String icon, String color, boolean excluded) {
+            Def(String name, TransactionType type, String icon, String color) {
+                this(name, type, icon, color, false);
+            }
+        }
 
         List<Def> defaults = List.of(
             new Def("Salary",        TransactionType.INCOME,  "💼", "#10b981"),
@@ -131,7 +137,8 @@ public class CategoryService {
                 new Def("Utilities",     TransactionType.EXPENSE, "⚡", "#64748b"),
                 new Def("Health",        TransactionType.EXPENSE, "🏥", "#10b981"),
                 new Def("Shopping",      TransactionType.EXPENSE, "🛍️", "#f59e0b"),
-                new Def("Subscriptions", TransactionType.EXPENSE, "📱", "#6366f1")
+                new Def("Subscriptions", TransactionType.EXPENSE, "📱", "#6366f1"),
+                new Def("Investing",     TransactionType.EXPENSE, "📈", "#0ea5e9", true)
         );
 
         int order = 0;
@@ -144,6 +151,7 @@ public class CategoryService {
                 .colorHex(d.color())
                 .monthlyBudget(BigDecimal.ZERO)
                 .sortOrder(order++)
+                .excludeFromSpending(d.excluded())
                 .user(user)
                 .build());
         }

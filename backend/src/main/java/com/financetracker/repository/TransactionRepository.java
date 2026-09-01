@@ -18,7 +18,21 @@ import com.financetracker.model.User;
 
 import jakarta.transaction.Transactional;
 
-public interface TransactionRepository extends JpaRepository<Transaction, String>, 
+/**
+ * Note on the repeated
+ * {@code AND (t.category IS NULL OR t.category.excludeFromSpending = false)} predicate:
+ * categories flagged {@code excludeFromSpending} (investments, savings transfers, …) are
+ * money that moved rather than money that left, so they must not appear in ANY aggregate
+ * of money -- spending totals, category breakdowns, insights, or balances. JPQL has no way
+ * to share a query fragment, so the predicate is repeated literally in every such query.
+ * <p>
+ * Add it to any new query that sums or averages amounts. The {@code IS NULL} half is
+ * required: uncategorized transactions still count as spending. Queries that count
+ * transactions rather than money (see {@link #countByUserAndYearMonth}) intentionally omit
+ * it -- an investment is still a transaction. The mirror query
+ * {@link #sumExcludedByYearMonth} reports the excluded money separately.
+ */
+public interface TransactionRepository extends JpaRepository<Transaction, String>,
                     JpaSpecificationExecutor<Transaction> {
 
     Optional<Transaction> findByIdAndUser(String id, User user);
@@ -30,11 +44,13 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
     @Query("SELECT COALESCE(" +
            "  SUM(CASE WHEN t.type = 'INCOME' THEN t.amount ELSE 0 END) - " +
            "  SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END)" +
-           ", 0) FROM Transaction t WHERE t.user = :user AND t.date <= :endDate AND t.isDeleted = false")
+           ", 0) FROM Transaction t WHERE t.user = :user AND t.date <= :endDate AND t.isDeleted = false " +
+           "AND (t.category IS NULL OR t.category.excludeFromSpending = false)")
     BigDecimal sumSignedAmountsUntil(@Param("user") User user, @Param("endDate") LocalDate endDate);
 
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
         "WHERE t.user = :user AND t.type = :type AND t.isDeleted = false " +
+        "AND (t.category IS NULL OR t.category.excludeFromSpending = false) " +
         "AND YEAR(t.date) = :year AND MONTH(t.date) = :month")
     BigDecimal sumByTypeAndYearMonth(@Param("user") User user,
                                 @Param("type") TransactionType type,
@@ -43,6 +59,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
 
     @Query("SELECT t.category, COALESCE(SUM(t.amount), 0) FROM Transaction t " +
         "WHERE t.user = :user AND t.type = 'EXPENSE' AND t.isDeleted = false " +
+        "AND (t.category IS NULL OR t.category.excludeFromSpending = false) " +
         "AND YEAR(t.date) = :year AND MONTH(t.date) = :month " +
         "GROUP BY t.category ORDER BY COALESCE(SUM(t.amount), 0) DESC")
     List<Object[]> findCategoryBreakdown(@Param("user") User user,
@@ -51,6 +68,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
 
     @Query("SELECT t FROM Transaction t LEFT JOIN FETCH t.category LEFT JOIN FETCH t.account " +
         "WHERE t.user = :user AND t.isDeleted = false AND t.type = 'EXPENSE' " +
+        "AND (t.category IS NULL OR t.category.excludeFromSpending = false) " +
         "AND YEAR(t.date) = :year AND MONTH(t.date) = :month " +
         "ORDER BY t.amount DESC")
     List<Transaction> findLargestExpenseInMonth(@Param("user") User user,
@@ -83,6 +101,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
     
     @Query("SELECT DAYOFWEEK(t.date), COALESCE(SUM(t.amount), 0) FROM Transaction t " +
            "WHERE t.user = :user AND t.type = 'EXPENSE' AND t.isDeleted = false " +
+           "AND (t.category IS NULL OR t.category.excludeFromSpending = false) " +
            "AND YEAR(t.date) = :year AND MONTH(t.date) = :month " +
            "GROUP BY DAYOFWEEK(t.date)")
     List<Object[]> findDayOfWeekSpend(@Param("user") User user,
@@ -98,9 +117,20 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
     // Query replacing the "per-month" sumByTypeAndYearMonth loop 'trending'
     @Query("SELECT YEAR(t.date), MONTH(t.date), t.type, COALESCE(SUM(t.amount), 0) " +
        "FROM Transaction t WHERE t.user = :user AND t.isDeleted = false " +
+       "AND (t.category IS NULL OR t.category.excludeFromSpending = false) " +
        "AND t.date >= :from " +
        "GROUP BY YEAR(t.date), MONTH(t.date), t.type " +
        "ORDER BY YEAR(t.date), MONTH(t.date)")
     List<Object[]> sumByYearMonthAndType(@Param("user") User user, @Param("from") LocalDate from);
-    
+
+    // Mirror of the exclusion predicate: the money the aggregates above deliberately
+    // ignore, so it can be reported as "invested" rather than silently missing.
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
+           "WHERE t.user = :user AND t.type = 'EXPENSE' AND t.isDeleted = false " +
+           "AND t.category.excludeFromSpending = true " +
+           "AND YEAR(t.date) = :year AND MONTH(t.date) = :month")
+    BigDecimal sumExcludedByYearMonth(@Param("user") User user,
+                                      @Param("year") int year,
+                                      @Param("month") int month);
+
 }

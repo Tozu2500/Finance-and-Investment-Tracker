@@ -34,7 +34,8 @@ public interface AccountRepository extends JpaRepository<Account, String> {
     @Query("SELECT COALESCE(" +
            "  SUM(CASE WHEN t.type = 'INCOME' THEN t.amount ELSE 0 END) - " +
            "  SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END)" +
-           ", 0) FROM Transaction t WHERE t.account = :account AND t.user = :user AND t.isDeleted = false")
+           ", 0) FROM Transaction t WHERE t.account = :account AND t.user = :user AND t.isDeleted = false " +
+           "AND (t.category IS NULL OR t.category.excludeFromSpending = false)")
 
     BigDecimal sumSignedAmountsForAccount(@Param("account") Account account, @Param("user") User user);
     

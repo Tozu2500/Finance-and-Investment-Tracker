@@ -11,6 +11,7 @@ public record DashboardDto(
     double totalBalance,
     double monthIncome,
     double monthExpense,
+    double monthInvested,
     double savingsRate,
     List<MonthPoint> balanceTrend,
     List<CategoryAmount> spendingBreakdown,
