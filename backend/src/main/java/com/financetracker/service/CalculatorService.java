@@ -57,14 +57,35 @@ public class CalculatorService {
         double monthlyContrib = req.monthlyContribution();
 
         for (int year = 1; year <= req.years(); year++) {
-            double interest = balance * monthlyRate;
+            double startBalance = balance;
+            double yearContribs = 0;
+            double yearInterest = 0;
 
-            balance += interest + monthlyContrib;
-            yearContribs += monthlyContrib;
-            yearInterest += interest;
-            totalContributed += monthlyContrib;
+            for (int m = 0; m < 12; m++) {
+                double interest = balance * monthlyRate;
+                balance += interest * monthlyContrib;
+                yearContribs += monthlyContrib;
+                yearInterest += interest;
+                totalContributed += monthlyContrib;
+            }
+
+            double inflationFactor = Math.pow(1 + req.inflation() / 100.0, year);
+            double real = balance / inflationFactor;
+
+            yearLabels.add("Year " + year);
+            balanceByYear.add(balance);
+            contributionsByYear.add(totalContributed);
+            realByYear.add(real);
+            schedule.add(new InvestmentResultDto.YearRow(year, startBalance, yearContribs, yearInterest, balance, real));
+
+            monthlyContrib *= (1 + req.contributionGrowth() / 100.0);
         }
 
-        
+        double futureValue = balance;
+        double realValue = balanceByYear.isEmpty() ? req.principal() : realByYear.get(realByYear.size() - 1);
+        double interestEarned = futureValue - totalContributed;
+
+        return new InvestmentResultDto(futureValue, totalContributed, interestEarned, realValue,
+                yearLabels, balanceByYear, contributionsByYear, realByYear, schedule);
     }
 }
