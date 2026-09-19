@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.financetracker.model.Account;
 import com.financetracker.model.Category;
+import com.financetracker.model.RecurType;
 import com.financetracker.model.Transaction;
 import com.financetracker.model.TransactionType;
 import com.financetracker.model.User;
@@ -34,18 +35,7 @@ public class SeedDataService {
     private final GoalDepositRepository goalDepositRepo;
     private final RecurringRuleRepository recurringRuleRepo;
 
-    // Deletes all financial data for a user in dependency order
-    @Transactional 
-    public void clearUserData(User user) {
-        goalDepositRepo.deleteAllByUser(user);
-        transactionRepo.deleteAllByUser(user);
-        recurringRuleRepo.deleteAllByUser(user);
-        goalRepo.deleteAllByUser(user);
-        accountRepo.deleteAllByUser(user);
-        categoryRepo.deleteAllByUser(user);
-    }
-
-    // Deletes all data for a user in dependency order
+    /** Deletes all financial data for a user in dependency order. */
     @Transactional
     public void clearUserData(User user) {
         goalDepositRepo.deleteAllByUser(user);
@@ -141,7 +131,7 @@ public class SeedDataService {
         Category coffee    = findCat(cats, "Coffee & Cafes");
         Category shopping  = findCat(cats, "Shopping");
 
-        Random random = new Random(42);
+        Random rng = new Random(42);
         List<Transaction> txns = new ArrayList<>();
         LocalDate today = LocalDate.now();
 
@@ -211,4 +201,33 @@ public class SeedDataService {
 
     // Helper methods
     
+    private Category cat(User user, String name, TransactionType type, String color, String icon, double budget) {
+        return cat(user, name, type, color, icon, budget, false);
+    }
+
+    private Category cat(User user, String name, TransactionType type, String color, String icon,
+                         double budget, boolean excludeFromSpending) {
+        return Category.builder()
+                .user(user).name(name).type(type)
+                .colorHex(color).icon(icon).monthlyBudget(BigDecimal.valueOf(budget))
+                .excludeFromSpending(excludeFromSpending)
+                .build();
+    }
+
+    private Transaction tx(User user, LocalDate date, double amount, TransactionType type,
+                           Category cat, Account acc, String note) {
+        return Transaction.builder()
+                .user(user).date(date).amount(BigDecimal.valueOf(amount)).type(type)
+                .category(cat).account(acc).note(note).recur(RecurType.NONE)
+                .build();
+    }
+
+    private Category findCat(List<Category> cats, String name) {
+        return cats.stream().filter(c -> c.getName().equals(name)).findFirst()
+                .orElse(cats.get(0));
+    }
+
+    private int daysInMonth(LocalDate d) {
+        return d.getMonth().length(d.isLeapYear());
+    }
 }
