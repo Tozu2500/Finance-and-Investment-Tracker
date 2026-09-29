@@ -1,10 +1,14 @@
 package com.financetracker.exception;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -33,4 +37,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
             .body(new ErrorResponse(401, "Invalid email or password", LocalDateTime.now()));
     }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidation(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getAllErrors().forEach(e -> {
+            if (e instanceof FieldError fe) {
+                errors.put(fe.getField(), e.getDefaultMessage());
+            } else {
+                errors.put(e.getObjectName(), e.getDefaultMessage());
+            }
+        });
+
+        return ResponseEntity.badRequest().body(errors);
+    }
+
 }
